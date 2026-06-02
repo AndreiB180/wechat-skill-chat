@@ -71,6 +71,12 @@ async function saveSettings() {
   setTimeout(()=>document.getElementById('sp-saved').style.display='none', 2000);
 }
 
+async function shutdownServer() {
+  if (!confirm('确定登出并关闭服务器？')) return;
+  try { await fetch('/api/shutdown', {method:'POST'}); } catch(e) {}
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#888;font-family:sans-serif">服务器已关闭，可以关闭此页面。</div>';
+}
+
 // ---- Chat List (sorted by last message time) ----
 function renderChatList() {
   const list = document.getElementById('chat-contact-list');
