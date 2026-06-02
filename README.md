@@ -3,6 +3,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/API-Anthropic_Compatible-orange" alt="API">
 </p>
+
 # WeChat Skill Chat
 
 **和你的 AI 人格在微信里聊天。**
