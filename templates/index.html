@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeChat</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="main-wrap">
+  <!-- Left Nav -->
+  <div class="nav-left">
+    <div class="nav-top">
+      <div class="nav-avatar" id="my-avatar-btn" title="设置" onclick="openSettings()">
+        <img id="my-avatar-img" src="avatars/default.svg">
+      </div>
+      <div style="height:24px"></div>
+      <div class="nav-icon active" id="nav-chat" title="聊天" onclick="switchNav('chat')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.05 2 11c0 2.36 1.06 4.53 2.85 6.07.24.2.38.5.38.82V21l3.35-1.87c.56.16 1.15.24 1.77.24C17.52 19.37 22 15.95 22 11S17.52 2 12 2z"/></svg>
+      </div>
+      <div class="nav-icon" id="nav-contacts" title="通讯录" onclick="switchNav('contacts')">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v1.2c0 .7.5 1.2 1.2 1.2h16.8c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+      </div>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-bottom">
+      <div class="nav-icon" id="nav-settings" title="设置" onclick="switchNav('settings')">
+        <svg viewBox="0 0 24 24"><path d="M19.1 12.9a7.8 7.8 0 00.1-1.8l2.1-1.6c.2-.2.2-.5.1-.7l-2-3.5c-.1-.2-.4-.3-.6-.2l-2.5 1c-.5-.4-1-.7-1.7-1l-.4-2.7c0-.2-.3-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.3-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.7l2.1 1.6c0 .6.1 1.2.1 1.8L2.2 14.5c-.2.2-.3.5-.1.7l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1 .7 1.7 1l.4 2.7c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.7l-2.1-1.6zM12 15.6c-2 0-3.6-1.6-3.6-3.6S10 8.4 12 8.4s3.6 1.6 3.6 3.6-1.6 3.6-3.6 3.6z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle: Chat List -->
+  <div class="list-middle" id="list-chat">
+    <div class="search-box"><input class="search-input" placeholder="搜索" oninput="filterChatList(this.value)"></div>
+    <div class="list-header">聊天</div>
+    <div class="contact-list" id="chat-contact-list"></div>
+  </div>
+
+  <!-- Right: Chat Area -->
+  <div class="chat-right" id="chat-area">
+    <div class="no-chat">选择一个聊天开始</div>
+  </div>
+
+  <!-- Right: Contacts Panel -->
+  <div class="contacts-panel" id="contacts-panel">
+    <div class="cp-header">通讯录</div>
+    <div class="cp-body" id="contacts-body">
+      <button class="add-btn" onclick="openImportModal()">+ 添加 Skill</button>
+      <div id="contacts-detail-list"></div>
+    </div>
+  </div>
+
+  <!-- Right: Settings Panel -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="sp-header">设置</div>
+    <div class="sp-body">
+      <div class="sp-section">
+        <h4>我的头像</h4>
+        <div class="sp-avatar-row">
+          <div class="sp-my-avatar"><img id="sp-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='16' r='10' fill='%23ccc'/%3E%3Cellipse cx='24' cy='40' rx='16' ry='12' fill='%23ccc'/%3E%3C/svg%3E"></div>
+          <input id="sp-avatar-url" placeholder="头像图片URL(可选)" style="flex:1">
+        </div>
+      </div>
+      <div class="sp-section">
+        <h4>API Base URL</h4>
+        <input id="sp-base-url" placeholder="例如: https://api.deepseek.com/anthropic">
+      </div>
+      <div class="sp-section">
+        <h4>Model</h4>
+        <input id="sp-model" placeholder="例如: deepseek-v4-pro">
+      </div>
+      <div class="sp-section">
+        <h4>API Key</h4>
+        <input id="sp-api-key" type="password" placeholder="sk-...">
+        <div style="margin-top:4px">
+          <button onclick="saveSettings()">保存</button>
+          <span id="sp-saved" style="color:#07C160;font-size:12px;margin-left:8px;display:none">已保存</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Contact Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <h3>修改备注和头像</h3>
+    <label>备注名</label>
+    <input id="edit-name" placeholder="备注名">
+    <label>头像URL(可选)</label>
+    <input id="edit-avatar" placeholder="头像图片链接">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveContact()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Skill Modal -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal-box">
+    <h3>导入 Skill</h3>
+    <label>Skill 文件夹路径</label>
+    <input id="import-path" placeholder="例如: /Users/xxx/Documents/xyh_skill">
+    <div class="modal-error" id="import-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeImportModal()">取消</button>
+      <button class="btn-save" onclick="importSkill()">导入</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/chat.js"></script>
+</body>
+</html>
