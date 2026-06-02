@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """WeChat PC Skill Chat — Entry point. Portable: drop anywhere and run."""
 
-from flask import Flask, render_template
+import webbrowser, os, signal
+
+from flask import Flask, render_template, jsonify
 from backend.routes.settings_routes import settings_bp
 from backend.routes.contacts_routes import contacts_bp
 from backend.routes.chat_routes import chat_bp
@@ -19,7 +21,14 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/shutdown", methods=["POST"])
+def shutdown():
+    os.kill(os.getpid(), signal.SIGTERM)
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
-    print("WeChat Skill Chat starting...")
-    print("Open http://localhost:5888")
-    app.run(host="0.0.0.0", port=5888, debug=True, use_reloader=False)
+    port = 5888
+    webbrowser.open(f"http://localhost:{port}")
+    print(f"WeChat Skill Chat → http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
