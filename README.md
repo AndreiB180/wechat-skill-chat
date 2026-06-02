@@ -13,6 +13,7 @@
 <p align="center">
   <img src="screenshot.png" width="720" alt="WeChat Skill Chat screenshot">
 </p>
+
 ---
 
 ## 兼容性
@@ -90,7 +91,7 @@ my-skill/
 ### 1. 安装
 
 ```bash
-git clone https://github.com/yourusername/wechat-skill-chat.git
+git clone https://github.com/AndreiB180/wechat-skill-chat.git
 cd wechat-skill-chat
 pip install flask anthropic
 ```
