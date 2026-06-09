@@ -1,5 +1,5 @@
 """Settings & skills_config CRUD with file locking."""
-import json, fcntl, base64
+import json, fcntl
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
@@ -10,10 +10,14 @@ CONFIG_FILE = BASE_DIR / "skills_config.json"
 def locked_read(path):
     if not path.exists():
         return None
+    if path.stat().st_size == 0:
+        return None
     with open(path, "r", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_SH)
         try:
             return json.load(f)
+        except json.JSONDecodeError:
+            return None
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
 

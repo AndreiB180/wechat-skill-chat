@@ -4,6 +4,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify
 from ..config import load_config, save_config, locked_read
 from ..history import clear as clear_history
+from ..claude_session import close_session
 
 contacts_bp = Blueprint("contacts", __name__)
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -34,6 +35,7 @@ def api_delete_skill(skill_id):
     cfg["skills"] = [s for s in cfg["skills"] if s["id"] != skill_id]
     save_config(cfg)
     clear_history(skill_id)
+    close_session(skill_id)
     return jsonify({"ok": True})
 
 
@@ -65,17 +67,33 @@ def api_import_skill():
 
     name = p.name
     skill_name = p.name
+    real_name = ""
     if meta_json.exists():
         try:
             meta = locked_read(meta_json)
             if meta:
                 name = meta.get("display_name") or meta.get("name") or p.name
                 skill_name = meta.get("name") or p.name
+                real_name = meta.get("real_name") or meta.get("name") or ""
         except Exception:
             pass
 
+    # If no real_name from meta, try extracting from first heading in persona content
+    if not real_name:
+        for line in content.split("\n"):
+            line = line.strip()
+            if line.startswith("# ") and not line.startswith("## "):
+                real_name = line[2:].strip()
+                break
+
     skill_id = "sk_" + hashlib.md5(name.encode()).hexdigest()[:8]
     skill_name_clean = skill_name.replace("colleague-", "").replace("relationship-", "")
+
+    # Validate duplicate BEFORE writing files
+    cfg = load_config()
+    for s in cfg["skills"]:
+        if s["id"] == skill_id:
+            return jsonify({"error": "该 Skill 已存在"}), 400
 
     dest = BASE_DIR / "skills" / f"{skill_name_clean}.md"
     dest.write_text(content, encoding="utf-8")
@@ -92,15 +110,11 @@ def api_import_skill():
     )
     (BASE_DIR / "static" / avatar_path).write_text(svg, encoding="utf-8")
 
-    cfg = load_config()
-    for s in cfg["skills"]:
-        if s["id"] == skill_id:
-            return jsonify({"error": "该 Skill 已存在"}), 400
-
     cfg["skills"].append({
         "id": skill_id, "name": name,
         "skill_name": skill_name_clean,
         "avatar": avatar_path, "default_note": "",
+        "real_name": real_name or name,
     })
     save_config(cfg)
     return jsonify({"ok": True, "skill": cfg["skills"][-1]})

@@ -46,6 +46,10 @@ body{font:14px/1.6 "Microsoft YaHei","PingFang SC",sans-serif;background:#e0e0e0
 .msg-bubble{max-width:62%;padding:8px 12px;font-size:13px;line-height:1.5;word-break:break-word;position:relative;user-select:text}
 .msg-row.other .msg-bubble{background:#fff;border-radius:3px;color:#000}
 .msg-row.self .msg-bubble{background:#95EC69;border-radius:3px;color:#000}
+.msg-content-wrap{display:flex;flex-direction:column;max-width:62%}
+.msg-row.self .msg-content-wrap{align-items:flex-end}
+.msg-sender-name{font-size:11px;color:#999;margin-bottom:2px;padding:0 4px}
+.msg-content-wrap .msg-bubble{max-width:100%}
 .chat-toolbar{display:flex;align-items:center;padding:4px 16px 0;background:#F5F5F5;gap:4px;border-top:1px solid #D9D9D9}
 .toolbar-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:3px;transition:background .15s}
 .toolbar-btn:hover{background:#E0E0E0}
@@ -79,6 +83,8 @@ body{font:14px/1.6 "Microsoft YaHei","PingFang SC",sans-serif;background:#e0e0e0
 .contacts-panel .cp-avatar{width:40px;height:40px;border-radius:3px;overflow:hidden;flex-shrink:0;margin-right:12px}
 .contacts-panel .cp-avatar img{width:100%;height:100%;object-fit:cover}
 .contacts-panel .cp-name{font-size:14px;flex:1}
+.contacts-panel .cp-action{color:#4A90D9;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:3px}
+.contacts-panel .cp-action:hover{background:#E0EEFF}
 .contacts-panel .cp-del{color:#E85D75;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:3px}
 .contacts-panel .cp-del:hover{background:#FFE0E0}
 .contacts-panel .add-btn{display:block;margin:12px 20px;padding:8px 16px;background:#07C160;color:#fff;border:none;border-radius:3px;font-size:13px;cursor:pointer}
@@ -110,3 +116,15 @@ body{font:14px/1.6 "Microsoft YaHei","PingFang SC",sans-serif;background:#e0e0e0
 .modal-btns button{padding:6px 18px;border-radius:3px;font-size:12px;cursor:pointer;border:none}
 .btn-cancel{background:#E0E0E0;color:#666}
 .btn-save{background:#07C160;color:#fff}
+
+/* Context menu */
+.msg-context-menu{position:fixed;background:#fff;border:1px solid #D9D9D9;border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,.15);z-index:999;min-width:100px;padding:4px 0;font-size:13px}
+.msg-context-menu .ctx-item{padding:8px 16px;cursor:pointer;transition:background .1s}
+.msg-context-menu .ctx-item:hover{background:#F0F0F0}
+
+/* Avatar drop zone highlight */
+.avatar-drop-active{outline:2px dashed #07C160;outline-offset:-2px;background:#E8F5E9!important}
+
+/* Tool info card */
+.perm-card{max-width:72%;background:#F0F4F8;border:1px solid #C0C8D0;border-radius:6px;padding:8px 14px;margin:4px 0;font-size:12px}
+.perm-body{color:#666;line-height:1.4;word-break:break-all;overflow-wrap:break-word;max-width:100%;overflow-x:auto}

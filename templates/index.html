@@ -32,7 +32,10 @@
 
   <!-- Middle: Chat List -->
   <div class="list-middle" id="list-chat">
-    <div class="search-box"><input class="search-input" placeholder="搜索" oninput="filterChatList(this.value)"></div>
+    <div class="search-box" style="display:flex;gap:4px;align-items:center">
+      <input class="search-input" placeholder="搜索" oninput="filterChatList(this.value)" style="flex:1">
+      <button id="add-btn-top" onclick="showAddMenu()" style="background:#DEDEDE;color:#888;border:none;border-radius:3px;width:24px;height:24px;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0">+</button>
+    </div>
     <div class="list-header">聊天</div>
     <div class="contact-list" id="chat-contact-list"></div>
   </div>
@@ -56,6 +59,10 @@
     <div class="sp-header">设置</div>
     <div class="sp-body">
       <div class="sp-section">
+        <h4>我的昵称</h4>
+        <input id="sp-nickname" placeholder="微信用户">
+      </div>
+      <div class="sp-section">
         <h4>我的头像</h4>
         <div class="sp-avatar-row">
           <div class="sp-my-avatar"><img id="sp-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='16' r='10' fill='%23ccc'/%3E%3Cellipse cx='24' cy='40' rx='16' ry='12' fill='%23ccc'/%3E%3C/svg%3E"></div>
@@ -73,11 +80,42 @@
       <div class="sp-section">
         <h4>API Key</h4>
         <input id="sp-api-key" type="password" placeholder="sk-...">
-        <div style="margin-top:4px">
-          <button onclick="saveSettings()">保存</button>
-          <button onclick="shutdownServer()" style="background:#FA5151;color:#fff;margin-left:8px">登出</button>
-          <span id="sp-saved" style="color:#07C160;font-size:12px;margin-left:8px;display:none">已保存</span>
+      </div>
+      <div class="sp-section">
+        <h4>运行模式</h4>
+        <select id="sp-mode" onchange="onModeChange()" style="width:100%;height:30px;border:1px solid #DDD;border-radius:3px;padding:0 8px;font-size:13px;outline:none">
+          <option value="api">API 模式 — 直接调用 LLM API</option>
+          <option value="claude">Claude Code 模式 — 调用本地 ccb</option>
+        </select>
+      </div>
+      <div id="sp-claude-group">
+        <div class="sp-section">
+          <h4>Claude Code CLI</h4>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="sp-claude-cli" placeholder="ccb" style="flex:1">
+            <button onclick="checkClaudeCLI()" style="background:#4A90D9;color:#fff;white-space:nowrap;font-size:12px">检测</button>
+          </div>
+          <span id="sp-claude-status" style="font-size:11px"></span>
         </div>
+        <div class="sp-section">
+          <h4>权限模式</h4>
+          <select id="sp-permission-mode" style="width:100%;height:30px;border:1px solid #DDD;border-radius:3px;padding:0 8px;font-size:13px;outline:none">
+            <option value="auto">自动 — 安全操作直接放行，风险操作弹窗审批（推荐）</option>
+            <option value="bypassPermissions">跳过权限 — 全部直接放行，不弹窗</option>
+          </select>
+          <div style="font-size:11px;color:#FA5151;margin-top:4px">⚠ CC 管道模式不支持交互式审批。遇到被拦的操作，短暂切到「跳过权限」执行完再切回来</div>
+        </div>
+        <div class="sp-section">
+          <h4>CC 工作目录</h4>
+          <input id="sp-add-dirs" placeholder="~">
+          <div style="font-size:11px;color:#999;margin-top:2px">CC 从这个目录启动。保存即生效</div>
+          <div style="font-size:11px;color:#FA5151;margin-top:2px">⚠ 修改工作目录会清空所有 CC 对话上下文</div>
+        </div>
+      </div>
+      <div class="sp-section" style="border-top:1px solid #EAEAEA;padding-top:16px;margin-top:8px">
+        <button onclick="saveSettings()">保存</button>
+        <button onclick="shutdownServer()" style="background:#FA5151;color:#fff;margin-left:8px">登出</button>
+        <span id="sp-saved" style="color:#07C160;font-size:12px;margin-left:8px;display:none">已保存</span>
       </div>
     </div>
   </div>
@@ -86,11 +124,17 @@
 <!-- Edit Contact Modal -->
 <div class="modal-overlay" id="edit-modal">
   <div class="modal-box">
-    <h3>修改备注和头像</h3>
-    <label>备注名</label>
+    <h3 id="edit-modal-title">修改备注和头像</h3>
+    <label id="edit-name-label">备注名</label>
     <input id="edit-name" placeholder="备注名">
-    <label>头像URL(可选)</label>
-    <input id="edit-avatar" placeholder="头像图片链接">
+    <div id="edit-realname-group" style="display:none">
+      <label>姓名</label>
+      <input id="edit-realname" placeholder="姓名" readonly style="background:#f5f5f5;color:#999">
+    </div>
+    <div id="edit-avatar-group">
+      <label>头像URL(可选)</label>
+      <input id="edit-avatar" placeholder="头像图片链接">
+    </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
       <button class="btn-save" onclick="saveContact()">保存</button>
@@ -113,5 +157,6 @@
 </div>
 
 <script src="/static/js/chat.js"></script>
+<script src="/static/js/group-chat.js"></script>
 </body>
 </html>
