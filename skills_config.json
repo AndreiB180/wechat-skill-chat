@@ -1,3 +1,12 @@
 {
-  "skills": []
+  "skills": [
+    {
+      "id": "sk_demo",
+      "name": "示例联系人",
+      "skill_name": "example",
+      "avatar": "avatars/default.svg",
+      "default_note": "这是一个示例 Skill",
+      "real_name": "示例"
+    }
+  ]
 }
