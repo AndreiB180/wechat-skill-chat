@@ -7,12 +7,14 @@ from flask import Flask, render_template, jsonify
 from backend.routes.settings_routes import settings_bp
 from backend.routes.contacts_routes import contacts_bp
 from backend.routes.chat_routes import chat_bp
+from backend.routes.group_routes import group_bp
 from backend.routes.static_routes import static_bp
 
 app = Flask(__name__)
 app.register_blueprint(settings_bp)
 app.register_blueprint(contacts_bp)
 app.register_blueprint(chat_bp)
+app.register_blueprint(group_bp)
 app.register_blueprint(static_bp)
 
 
@@ -28,7 +30,7 @@ def shutdown():
 
 
 if __name__ == "__main__":
-    port = 5888
+    port = int(os.environ.get("PORT", 5888))
     webbrowser.open(f"http://localhost:{port}")
     print(f"WeChat Skill Chat → http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
+    app.run(host="127.0.0.1", port=port, debug=True, use_reloader=False)

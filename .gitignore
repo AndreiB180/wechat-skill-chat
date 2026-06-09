@@ -3,3 +3,4 @@ settings.json
 __pycache__/
 *.pyc
 .DS_Store
+cc_logs/

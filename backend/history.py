@@ -20,7 +20,7 @@ def load(skill_id):
 
 
 def save(skill_id, history):
-    locked_write(_path(skill_id), history[-200:])
+    locked_write(_path(skill_id), history[-300:])
 
 
 def clear(skill_id):
