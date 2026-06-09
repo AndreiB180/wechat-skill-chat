@@ -1,18 +1,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue" alt="Python">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/API-Anthropic_Compatible-orange" alt="API">
+  <img src="https://img.shields.io/badge/API-Anthropic_Compatible-orange" alt="API"> <img src="https://img.shields.io/badge/mode-Claude_Code-purple" alt="CC">
 </p>
+
 # WeChat Skill Chat
 
 **和你的 AI 人格在微信里聊天。**
 
-一个像素级复刻微信 PC 版界面的聊天应用。导入一个 skill 文件夹，它就成了你的微信好友——像真人一样说话，用微信的黄脸表情，能读你发的文件。把任何 LLM persona 变成联系人。
-
-
-<p align="center">
-  <img src="screenshot.png" width="720" alt="WeChat Skill Chat screenshot">
-</p>
+一个像素级复刻微信 PC 版界面的聊天应用。支持双模运行：API 直连 + Claude Code 管道。导入 skill persona，它就成了你的微信好友——像真人一样聊天、用黄脸表情、读文件、执行命令。
 
 ---
 
