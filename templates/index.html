@@ -3,49 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WeChat</title>
+<title>微信</title>
 <link rel="stylesheet" href="/static/css/style.css">
+<!-- 原生外壳（app_native.py）打开时带 ?native=1，那里有系统自己的红绿灯，页面就不画了 -->
+<script>if (/[?&]native=1\b/.test(location.search)) document.documentElement.classList.add('native');</script>
 </head>
 <body>
+<!-- 顶部 30px 是 macOS 透明标题栏覆盖区，交互元素都避开这一条 -->
 <div class="main-wrap">
-  <!-- Left Nav -->
+
+  <!-- 左侧导航：顶部留白给红绿灯。没做的功能保留图标位，点了给提示。 -->
   <div class="nav-left">
+    <div class="nav-traffic-space" aria-hidden="true"><i class="tl tl-close"></i><i class="tl tl-min"></i><i class="tl tl-max"></i></div>
+    <div class="nav-avatar" id="my-avatar-btn" title="我" onclick="openSettings()">
+      <img id="my-avatar-img" src="avatars/default.svg">
+    </div>
     <div class="nav-top">
-      <div class="nav-avatar" id="my-avatar-btn" title="设置" onclick="openSettings()">
-        <img id="my-avatar-img" src="avatars/default.svg">
-      </div>
-      <div style="height:24px"></div>
+      <!-- 聊天：实心圆角气泡（选中时整块变绿） -->
       <div class="nav-icon active" id="nav-chat" title="聊天" onclick="switchNav('chat')">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.05 2 11c0 2.36 1.06 4.53 2.85 6.07.24.2.38.5.38.82V21l3.35-1.87c.56.16 1.15.24 1.77.24C17.52 19.37 22 15.95 22 11S17.52 2 12 2z"/></svg>
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2c-5.1 0-9.2 3.5-9.2 7.9 0 2.5 1.4 4.8 3.5 6.2v3.1a.5.5 0 00.77.42l3.02-1.93c.62.1 1.26.16 1.91.16 5.1 0 9.2-3.5 9.2-7.9S17.1 3.2 12 3.2z"/></svg>
       </div>
+      <!-- 通讯录：人像 + 右侧三条名录线。选中时换成实心版（微信就是这样） -->
       <div class="nav-icon" id="nav-contacts" title="通讯录" onclick="switchNav('contacts')">
-        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v1.2c0 .7.5 1.2 1.2 1.2h16.8c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+        <svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="8.3" cy="7.9" r="3.3"/><path d="M2.9 19.4c0-3.1 2.4-5.4 5.4-5.4s5.4 2.3 5.4 5.4"/>
+          <path d="M16.9 7.4h4.4M16.9 12h4.4M16.9 16.6h4.4"/></svg>
+        <svg class="ico-fill" viewBox="0 0 24 24">
+          <ellipse cx="8.3" cy="7.6" rx="3.4" ry="3.7" fill="currentColor"/>
+          <path fill="currentColor" d="M8.3 13.4c3.2 0 5.7 2.5 5.7 5.6a.7.7 0 01-.7.7H3.3a.7.7 0 01-.7-.7c0-3.1 2.5-5.6 5.7-5.6z"/>
+          <path fill="currentColor" d="M16.6 6.4h5.2a1 1 0 010 2h-5.2a1 1 0 010-2zM16.6 11h5.2a1 1 0 010 2h-5.2a1 1 0 010-2zM16.6 15.6h5.2a1 1 0 010 2h-5.2a1 1 0 010-2z"/></svg>
+      </div>
+      <!-- 收藏：等距立方体 -->
+      <div class="nav-icon ph" title="收藏" onclick="notReady('收藏')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M12 2.7l8.4 4.7v9.2L12 21.3l-8.4-4.7V7.4z"/><path d="M3.8 7.5L12 12.1l8.2-4.6M12 12.1v9.2"/></svg>
+      </div>
+      <!-- 朋友圈：相机光圈（内六边形 + 六根切向叶片） -->
+      <div class="nav-icon ph" title="朋友圈" onclick="notReady('朋友圈')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M15.8 12L13.9 15.3 10.1 15.3 8.2 12 10.1 8.7 13.9 8.7Z"/>
+          <path d="M15.8 12l3.3 5.5M13.9 15.3l-3.2 5.6M10.1 15.3l-6.4.1M8.2 12L4.9 6.5M10.1 8.7l3.2-5.6M13.9 8.7l6.4-.1"/></svg>
+      </div>
+      <!-- 视频号：圆润的 W，两笔各自收成圆头 -->
+      <div class="nav-icon ph" title="视频号" onclick="notReady('视频号')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.99 5.18C3.48 5.48 3.88 8.7 3.97 9.76c.07.84.69 4.17.96 4.9.4 1.09 1.14 4.12 2.47 4.21 1.47.1 3.54-3.32 4.17-4.26.54-.8 2.73-4.3 3.28-5.11.6-.88 3.02-4.55 4.16-4.32 1.51.3 1.11 3.52 1.02 4.58-.07.84-.69 4.17-.96 4.9-.4 1.09-1.14 4.12-2.47 4.21-1.47.1-3.54-3.32-4.17-4.26-.54-.8-2.73-4.3-3.28-5.11-.6-.88-3.02-4.55-4.16-4.32Z" stroke-width="1.7"/></svg>
+      </div>
+      <!-- 小程序：圆角菱形 + 内圆 + 中心点 -->
+      <div class="nav-icon ph" title="小程序" onclick="notReady('小程序')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M10.98 3.42 A1.44 1.44 0 0 1 13.02 3.42 L20.58 10.98 A1.44 1.44 0 0 1 20.58 13.02 L13.02 20.58 A1.44 1.44 0 0 1 10.98 20.58 L3.42 13.02 A1.44 1.44 0 0 1 3.42 10.98 Z" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="3.33" stroke-width="1.4"/>
+          <path d="M12 8.67 L12 3.36" stroke-width="1.4"/><path d="M15.33 12 L20.64 12" stroke-width="1.4"/>
+          <path d="M12 15.33 L12 20.64" stroke-width="1.4"/><path d="M8.67 12 L3.36 12" stroke-width="1.4"/></svg>
+      </div>
+      <!-- 搜一搜：圆内螺旋 -->
+      <div class="nav-icon ph" title="搜一搜" onclick="notReady('搜一搜')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="8.8" stroke-width="1.44"/>
+          <path d="M8.98 12C9.43 11.95 6.82 12.37 7.16 14.27A2.44 2.44 0 0 0 12 13.85V10.15A2.44 2.44 0 0 1 16.84 9.73C17.18 11.63 14.57 12.05 15.02 12" stroke-width="1.44"/></svg>
       </div>
     </div>
     <div class="nav-spacer"></div>
     <div class="nav-bottom">
+      <div class="nav-icon ph" title="手机" onclick="notReady('手机')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+          <rect x="6.8" y="2.6" width="10.4" height="18.8" rx="2.3"/><path d="M10.4 18.5h3.2" stroke-linecap="round"/></svg>
+      </div>
       <div class="nav-icon" id="nav-settings" title="设置" onclick="switchNav('settings')">
-        <svg viewBox="0 0 24 24"><path d="M19.1 12.9a7.8 7.8 0 00.1-1.8l2.1-1.6c.2-.2.2-.5.1-.7l-2-3.5c-.1-.2-.4-.3-.6-.2l-2.5 1c-.5-.4-1-.7-1.7-1l-.4-2.7c0-.2-.3-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.3-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.7l2.1 1.6c0 .6.1 1.2.1 1.8L2.2 14.5c-.2.2-.3.5-.1.7l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1 .7 1.7 1l.4 2.7c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.7l-2.1-1.6zM12 15.6c-2 0-3.6-1.6-3.6-3.6S10 8.4 12 8.4s3.6 1.6 3.6 3.6-1.6 3.6-3.6 3.6z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M3.4 7.2h17.2M3.4 12h17.2M3.4 16.8h17.2"/></svg>
       </div>
     </div>
   </div>
 
-  <!-- Middle: Chat List -->
+  <!-- 中栏：会话列表 -->
   <div class="list-middle" id="list-chat">
-    <div class="search-box" style="display:flex;gap:4px;align-items:center">
-      <input class="search-input" placeholder="搜索" oninput="filterChatList(this.value)" style="flex:1">
-      <button id="add-btn-top" onclick="showAddMenu()" style="background:#DEDEDE;color:#888;border:none;border-radius:3px;width:24px;height:24px;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0">+</button>
+    <div class="list-topbar">
+      <div class="search-box" id="search-box">
+        <svg class="search-ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6L14.2 14.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input class="search-input" id="search-input" placeholder="搜索"
+               oninput="onSearchInput(this.value)" onfocus="onSearchInput(this.value)">
+        <div class="search-clear" id="search-clear" onclick="clearSearch()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.4"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+        </div>
+      </div>
+      <button class="add-round" id="add-btn-top" title="发起群聊 / 添加" onclick="showAddMenu()">
+        <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8.4"/><path d="M11 7.2v7.6M7.2 11h7.6"/></svg>
+      </button>
     </div>
-    <div class="list-header">聊天</div>
     <div class="contact-list" id="chat-contact-list"></div>
   </div>
 
-  <!-- Right: Chat Area -->
+  <!-- 右侧：聊天区 -->
   <div class="chat-right" id="chat-area">
-    <div class="no-chat">选择一个聊天开始</div>
+    <div class="no-chat"></div>
   </div>
 
-  <!-- Right: Contacts Panel -->
+  <!-- 右侧：通讯录 -->
   <div class="contacts-panel" id="contacts-panel">
     <div class="cp-header">通讯录</div>
     <div class="cp-body" id="contacts-body">
@@ -54,7 +110,7 @@
     </div>
   </div>
 
-  <!-- Right: Settings Panel -->
+  <!-- 右侧：设置 -->
   <div class="settings-panel" id="settings-panel">
     <div class="sp-header">设置</div>
     <div class="sp-body">
@@ -65,8 +121,8 @@
       <div class="sp-section">
         <h4>我的头像</h4>
         <div class="sp-avatar-row">
-          <div class="sp-my-avatar"><img id="sp-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='16' r='10' fill='%23ccc'/%3E%3Cellipse cx='24' cy='40' rx='16' ry='12' fill='%23ccc'/%3E%3C/svg%3E"></div>
-          <input id="sp-avatar-url" placeholder="头像图片URL(可选)" style="flex:1">
+          <div class="sp-my-avatar"><img id="sp-avatar-img" src="avatars/default.svg"></div>
+          <input id="sp-avatar-url" placeholder="拖一张图片进来，或填 URL">
         </div>
       </div>
       <div class="sp-section">
@@ -80,48 +136,59 @@
       <div class="sp-section">
         <h4>API Key</h4>
         <input id="sp-api-key" type="password" placeholder="sk-...">
+        <div class="sp-hint" id="sp-key-hint">macOS 上保存后写进登录钥匙串，settings.json 里不留密钥；其他系统存在 settings.json 里，只做了简单混淆。</div>
       </div>
+
       <div class="sp-section">
         <h4>运行模式</h4>
-        <select id="sp-mode" onchange="onModeChange()" style="width:100%;height:30px;border:1px solid #DDD;border-radius:3px;padding:0 8px;font-size:13px;outline:none">
+        <select id="sp-mode" onchange="onModeChange()">
           <option value="api">API 模式 — 直接调用 LLM API</option>
-          <option value="claude">Claude Code 模式 — 调用本地 ccb</option>
+          <option value="claude">Claude Code 模式 — 调用本地 CLI</option>
         </select>
       </div>
       <div id="sp-claude-group">
         <div class="sp-section">
           <h4>Claude Code CLI</h4>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input id="sp-claude-cli" placeholder="ccb" style="flex:1">
-            <button onclick="checkClaudeCLI()" style="background:#4A90D9;color:#fff;white-space:nowrap;font-size:12px">检测</button>
+          <div class="sp-row">
+            <input id="sp-claude-cli" placeholder="claude">
+            <button class="btn-mini" onclick="checkClaudeCLI()">检测</button>
           </div>
-          <span id="sp-claude-status" style="font-size:11px"></span>
+          <span id="sp-claude-status" class="sp-hint"></span>
         </div>
         <div class="sp-section">
           <h4>权限模式</h4>
-          <select id="sp-permission-mode" style="width:100%;height:30px;border:1px solid #DDD;border-radius:3px;padding:0 8px;font-size:13px;outline:none">
-            <option value="auto">自动 — 安全操作直接放行，风险操作弹窗审批（推荐）</option>
-            <option value="bypassPermissions">跳过权限 — 全部直接放行，不弹窗</option>
+          <select id="sp-permission-mode">
+            <option value="auto">自动 — 安全操作放行，风险操作拦截</option>
+            <option value="bypassPermissions">跳过权限 — 全部放行</option>
           </select>
-          <div style="font-size:11px;color:#FA5151;margin-top:4px">⚠ CC 管道模式不支持交互式审批。遇到被拦的操作，短暂切到「跳过权限」执行完再切回来</div>
         </div>
         <div class="sp-section">
           <h4>CC 工作目录</h4>
           <input id="sp-add-dirs" placeholder="~">
-          <div style="font-size:11px;color:#999;margin-top:2px">CC 从这个目录启动。保存即生效</div>
-          <div style="font-size:11px;color:#FA5151;margin-top:2px">⚠ 修改工作目录会清空所有 CC 对话上下文</div>
+          <div class="sp-hint warn">改工作目录会清空所有 CC 对话上下文</div>
         </div>
       </div>
-      <div class="sp-section" style="border-top:1px solid #EAEAEA;padding-top:16px;margin-top:8px">
+
+      <div class="sp-section">
+        <h4>语音引擎（可选，本机 GPT-SoVITS）</h4>
+        <div class="sp-row">
+          <input id="sp-gs-dir" placeholder="~/GPT-SoVITS">
+          <button class="btn-mini" onclick="checkVoiceEngine()">启动检测</button>
+        </div>
+        <span id="sp-voice-status" class="sp-hint"></span>
+        <div class="sp-hint">模型常驻本机内存，不联网。每个联系人的音色在通讯录里单独配置。</div>
+      </div>
+
+      <div class="sp-section sp-actions">
         <button onclick="saveSettings()">保存</button>
-        <button onclick="shutdownServer()" style="background:#FA5151;color:#fff;margin-left:8px">登出</button>
-        <span id="sp-saved" style="color:#07C160;font-size:12px;margin-left:8px;display:none">已保存</span>
+        <button class="btn-danger" onclick="shutdownServer()">退出</button>
+        <span id="sp-saved" class="sp-saved">已保存</span>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Edit Contact Modal -->
+<!-- 修改备注 / 群名 -->
 <div class="modal-overlay" id="edit-modal">
   <div class="modal-box">
     <h3 id="edit-modal-title">修改备注和头像</h3>
@@ -129,10 +196,10 @@
     <input id="edit-name" placeholder="备注名">
     <div id="edit-realname-group" style="display:none">
       <label>姓名</label>
-      <input id="edit-realname" placeholder="姓名" readonly style="background:#f5f5f5;color:#999">
+      <input id="edit-realname" placeholder="姓名" readonly class="ro">
     </div>
     <div id="edit-avatar-group">
-      <label>头像URL(可选)</label>
+      <label>头像（可拖图片进来）</label>
       <input id="edit-avatar" placeholder="头像图片链接">
     </div>
     <div class="modal-btns">
@@ -142,7 +209,7 @@
   </div>
 </div>
 
-<!-- Import Skill Modal -->
+<!-- 导入 Skill -->
 <div class="modal-overlay" id="import-modal">
   <div class="modal-box">
     <h3>导入 Skill</h3>
@@ -155,6 +222,61 @@
     </div>
   </div>
 </div>
+
+<!-- 语音设置：必须测试成功才能启用 -->
+<div class="modal-overlay" id="voice-modal">
+  <div class="modal-box wide">
+    <h3>语音设置 · <span id="vm-name"></span></h3>
+
+    <label>GPT 权重（.ckpt）</label>
+    <div class="sp-row">
+      <input id="vm-gpt" placeholder="未选择">
+      <button class="btn-mini" onclick="pickVoiceFile('gpt')">选择</button>
+    </div>
+
+    <label>SoVITS 权重（.pth）</label>
+    <div class="sp-row">
+      <input id="vm-sovits" placeholder="未选择">
+      <button class="btn-mini" onclick="pickVoiceFile('sovits')">选择</button>
+    </div>
+
+    <label>参考音频（3–10 秒，决定音色）</label>
+    <div class="sp-row">
+      <input id="vm-ref" placeholder="未选择">
+      <button class="btn-mini" onclick="pickVoiceFile('audio')">选择</button>
+    </div>
+
+    <label>参考音频对应的文字（留空则用零样本模式）</label>
+    <input id="vm-reftext" placeholder="可留空">
+
+    <div class="vm-test-row">
+      <button class="btn-save" id="vm-test-btn" onclick="testVoice()">测试合成</button>
+      <span id="vm-test-status" class="sp-hint"></span>
+      <audio id="vm-audio" controls style="display:none"></audio>
+    </div>
+
+    <div class="vm-gate" id="vm-gate">
+      <label class="vm-switch">
+        <input type="checkbox" id="vm-enabled" disabled>
+        <span>启用语音（需先测试成功）</span>
+      </label>
+      <div class="vm-prob">
+        <label>发语音的概率：<b id="vm-prob-val">30</b>%</label>
+        <input type="range" id="vm-prob" min="0" max="100" step="5" value="30"
+               oninput="document.getElementById('vm-prob-val').textContent=this.value">
+        <div class="sp-hint">0 = 从不发语音，100 = 每条都发语音</div>
+      </div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeVoiceModal()">关闭</button>
+      <button class="btn-save" onclick="saveVoiceConfig()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 搜索结果下拉：搜的是聊天记录内容，不是联系人名字 -->
+<div class="search-panel" id="search-panel"></div>
 
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/group-chat.js"></script>

@@ -2,7 +2,7 @@
 import subprocess, shutil
 
 
-def check_claude_cli(cli_path="ccb"):
+def check_claude_cli(cli_path="claude"):
     """Check if the Claude Code CLI is available and working. Returns (ok, version_or_error)."""
     bin_path = shutil.which(cli_path)
     if not bin_path:

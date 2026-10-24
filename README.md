@@ -1,73 +1,71 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-blue" alt="Python">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/API-Anthropic_Compatible-orange" alt="API"> <img src="https://img.shields.io/badge/mode-Claude_Code-purple" alt="CC">
-</p>
-
 # WeChat Skill Chat
 
-**和你的 AI 人格在微信里聊天。**
+照着 Mac 版微信做的一个聊天界面，联系人是 AI 人格（skill）。导入一个 skill 文件夹，它就成了通讯录里的一个好友，可以单聊，也可以拉几个人建群。它回你消息的方式跟人在微信上打字差不多：一句一个气泡，不写 Markdown，表情用微信的黄脸。
 
-一个像素级复刻微信 PC 版界面的聊天应用。支持双模运行：API 直连 + Claude Code 管道。导入 skill persona，它就成了你的微信好友——像真人一样聊天、用黄脸表情、读文件、执行命令。
+![单聊](docs/screenshots/chat.png)
 
----
+![群聊](docs/screenshots/group.png)
 
-## 兼容性
+截图里的联系人和对话都是编的。
 
-本项目使用 **Anthropic Messages API**（`/v1/messages`）。任何兼容该协议的 API 提供商均可使用，包括：
+## 快速开始
 
-| 提供商 | Base URL |
-|--------|----------|
-| **Anthropic** | 留空（SDK 自动使用 `https://api.anthropic.com`） |
-| **DeepSeek** | `https://api.deepseek.com/anthropic` |
-| 其他兼容网关 | 填入对应的 `/anthropic` 或 `/v1/messages` 端点 |
+```bash
+git clone https://github.com/AndreiB180/wechat-skill-chat.git
+cd wechat-skill-chat
+pip install flask anthropic
+python3 server.py
+```
 
-只要你的 API 能响应 `POST /v1/messages` 并返回 Anthropic 格式的 `content` 数组，就能用。不兼容 OpenAI Chat Completions 格式（`/v1/chat/completions`）。
+跑起来会自动打开浏览器（默认 http://localhost:5888，端口被占了就换一个，终端里会打出来）。第一次打开能看到一个示例联系人。点左上角自己的头像进设置，把 API 填好（见下面「接哪个模型」），然后去通讯录导入 skill。
 
----
+我是在 macOS 上写和测的，Python 3.9 以上就行。Linux 应该也能跑，但我没仔细测过；Windows 跑不了，因为文件锁用的是 `fcntl`。
 
-## 功能
+几个可选的依赖，用到再装：
 
-- **微信 PC 版 1:1 界面** — 55px 导航栏、250px 联系人列表、自适应聊天区，配色布局完全对齐
-- **Skill 即联系人** — 每个人格是独立的联系人，独立的头像、聊天记录、对话风格
-- **群聊** — 多 Skill 建群，路由 Agent 自动判断该谁回复，支持 @提及、SSE 流式响应
-- **导入即用** — 选择一个 skill 文件夹，自动验证、注册、生成头像、复制 persona
-- **文件附件** — 一次选多个文件发给 AI，支持 txt/docx/pdf，自动提取文本注入上下文
-- **聊天记录持久化** — 每个联系人 / 群聊一个 JSON，关掉浏览器再打开还在，按最新消息自动排序
-- **消息操作** — 右键菜单复制 / 删除消息，软删除标记持久化不丢数据
-- **多模型切换** — 设置里填 API Key + Base URL + Model，随时切 Anthropic ↔ DeepSeek
-- **头像拖拽上传** — 拖图片到设置或联系人编辑框的 URL 输入区，自动上传
-- **零硬编码** — 联系人是 `skills_config.json` 数据文件，群聊是 `groups_config.json`，增删改在 UI 完成，不动代码
-- **可移植** — `pip install flask anthropic && python3 server.py`，整个文件夹下载下来就能跑
+| 想要的功能 | 要装的 |
+|---|---|
+| 给 AI 发 `.docx` 附件 | `pip install python-docx` |
+| 给 AI 发 `.pdf` 附件（有文字层的） | `pip install PyPDF2` |
+| macOS 独立窗口版 | `pip install pywebview` |
+| 语音消息 | 本机装好 GPT-SoVITS，见「语音」一节 |
 
----
+## 接哪个模型
 
-## Skill 格式
+设置里的「运行模式」有两种。
 
-本项目导入的 skill 需要是一个**文件夹**，最低要求包含以下文件之一（优先级：`SKILL.md` > `persona.md`，两者同时存在时只读 `SKILL.md`）：
+**API 模式**：直接调模型的 API。用的是 Anthropic Messages 格式（`POST /v1/messages`），所以兼容这个格式的服务都能接：
 
-### 方式 A：单文件 `SKILL.md`（推荐）
+| 服务 | Base URL | Model 填什么（举例） |
+|---|---|---|
+| Anthropic | 留空 | `claude-sonnet-5-5` |
+| DeepSeek | `https://api.deepseek.com/anthropic` | `deepseek-v4-pro` |
+| 其他兼容的网关 | 它给的 `/anthropic` 或 `/v1/messages` 地址 | 看它的文档 |
+
+OpenAI 那种 `/v1/chat/completions` 格式接不了。
+
+**Claude Code 模式**：本机装了 Claude Code 的话，每个联系人可以各自跑在一个 Claude Code 会话里，能读你发的文件，也能跑命令。设置里填命令名（默认 `claude`），权限有两档：「自动」会放行安全的操作、拦下有风险的；「跳过权限」全部放行，自己掂量着用。
+
+API Key 在 macOS 上保存后写进登录钥匙串，`settings.json` 里只留一个标记。其他系统没有钥匙串，Key 存在 `settings.json` 里，只做了 base64 混淆，等于明文，这个文件别给别人。
+
+## 导入 skill
+
+skill 是一个文件夹，里面至少要有下面两种写法之一（两种都有的话只读 `SKILL.md`）：
 
 ```
 my-skill/
-├── SKILL.md        # 完整的 persona + work 合并文件
-└── meta.json       # 可选，提供 display_name、标签等元数据
+├── SKILL.md      # 整个人格写在一个文件里（推荐）
+└── meta.json     # 可选
 ```
-
-这是 dot-skill 的标准输出格式。`SKILL.md` 即为完整的 system prompt，约 20-30KB，包含角色描述、说话风格、行为规则等。
-
-### 方式 B：分离文件 `persona.md` + `work.md`
 
 ```
 my-skill/
-├── persona.md      # 人物性格（必选）
-├── work.md         # 工作能力（可选）
-└── meta.json       # 可选
+├── persona.md    # 性格和说话方式，必须有
+├── work.md       # 会干什么，可选，导入时和 persona.md 合并
+└── meta.json     # 可选
 ```
 
-导入时自动合并 `persona.md` 和 `work.md`。
-
-### meta.json（可选）
+`meta.json` 是可选的，用来指定显示名：
 
 ```json
 {
@@ -77,149 +75,63 @@ my-skill/
 }
 ```
 
-- `display_name` → 联系人列表显示的名字（优先于文件夹名）
-- `name` → 内部 skill 名
-- 没有 `meta.json` 时使用文件夹名
+没有 `meta.json` 就用文件夹名。`SKILL.md` 可以用 `/dot-skill` 从聊天记录里蒸馏，也可以自己写一段角色描述。
 
-> **制作 skill**：用 `/dot-skill` 从聊天记录蒸馏高还原度人格，或用任何 LLM 写一段角色描述存为 `SKILL.md`。
+导入：通讯录 →「添加 Skill」→ 填文件夹的完整路径。导入后会自动生成一个首字头像，想换就把图片拖进联系人编辑框的头像地址那一栏。
 
----
+每次调模型之前，程序会在人格前面塞一段格式要求：不许用 Markdown，不许写「（顿了顿）」这类括号动作和旁白，表情写成 `[捂脸]` 这样，回复要短。模型回的内容按换行拆成几个气泡。
 
-## 快速开始
+## 群聊
 
-### 1. 安装
+聊天列表上方的「+」可以拉几个联系人建群。你发一条消息以后，先有一次轻量的模型调用决定谁来接话，消息里提到了谁的名字，谁就一定回；之后再轮几轮，尽量让还没说话的人说，不让一个人刷屏。输入 `@` 会弹出成员列表。群聊的回复是流式的，一条一条冒出来。
 
-```bash
-git clone https://github.com/AndreiB180/wechat-skill-chat.git
-cd wechat-skill-chat
-pip install flask anthropic
-```
+## 搜索聊天记录
 
-### 2. 启动
+顶部的搜索框能搜联系人和聊天内容。「查看全部」在 macOS 窗口版里会开一个单独的窗口，跟微信一样；在浏览器里是新开一个标签页。
+
+## macOS 窗口版（可选）
 
 ```bash
-python3 server.py
+pip install pywebview
+python3 app_native.py
 ```
 
-打开 `http://localhost:5888`。
+这样开出来是一个独立窗口，没有浏览器的地址栏，左上角是系统自己的红绿灯，侧栏有毛玻璃效果。浏览器里的红绿灯是画上去的装饰，点了没反应。
 
-### 3. 配置 API
+想放进 Dock 的话跑一次 `./build_app.sh`，会生成一个 `微信.app`。它只是个启动用的壳，跑的还是本机的 Python，换了项目路径或 Python 环境就重新跑一次。第一次打开 macOS 会问能不能访问「文稿」文件夹，要点允许，不然读不到项目里的文件。日志在 `~/Library/Logs/wechat-skill-chat.log`。
 
-左下角齿轮 → 设置：
+## 语音（可选，默认关）
 
-| 字段 | Anthropic | DeepSeek |
-|------|-----------|----------|
-| Base URL | 留空（SDK 默认） | `https://api.deepseek.com/anthropic` |
-| Model | `claude-sonnet-4-20250514` | `deepseek-v4-pro` |
-| API Key | `sk-ant-...` | `sk-...` |
+每个联系人可以单独配一个音色，配好以后它回你时会按你设的概率发语音。语音用本机的 GPT-SoVITS 合成，不联网。
 
-API Key 保存时自动 base64 混淆，不会明文泄露。
+1. 设置里填 GPT-SoVITS 的目录，点「启动检测」。`voice_config.json` 里的 `engine.python` 要指向装了 torch 的那个 Python。
+2. 通讯录 → 某个联系人 →「语音」：选 GPT 权重（`.ckpt`）、SoVITS 权重（`.pth`）和一段 3–10 秒的参考音频。
+3. 点「测试合成」。真合成出声音了才能勾「启用语音」，改了任何模型参数都要重新测。
+4. 拖滑块设概率：0 是从来不发语音，100 是每条都发。
 
-### 4. 导入 Skill
+我在 M3 Pro 上纯 CPU 跑，模型第一次加载大概 10 秒，之后合成 5 秒的语音大概要 7 秒。合成失败的那条会退回文字，不会卡住。语音气泡右键可以转文字。没装 GPT-SoVITS 也不影响别的功能，点「启动检测」只会提示找不到目录。
 
-通讯录 → **+ 添加 Skill** → 输入文件夹路径 → 导入。新的联系人即刻出现在聊天列表。
+## 隐私
 
----
+下面这些只存在你自己电脑上，`.gitignore` 里都排除了：
 
-## 架构
+- `settings.json`：设置和 Key 的标记
+- `skills_config.json`、`groups_config.json`：你的联系人和群。仓库里只有 `skills_config.example.json`、`groups_config.example.json` 两个示例，本机还没有正式文件时程序读示例
+- `chat_history/`：聊天记录，每个联系人或群一个 JSON。活跃文件里留最近 400 条，更早的追加到 `chat_history/archive/`，不会删
+- `skills/`（`example.md` 除外）、`static/avatars/`（`default.svg` 除外）：导入的人格和上传的头像
+- `cc_logs/`、`voice_config.json`、`static/voice_cache/`：Claude Code 日志、语音配置和合成出来的音频
+
+导入的人格如果是照着真人做的，这些文件里就有真人的信息，往外发这个文件夹之前看一眼。
+
+## 目录
 
 ```
-wechat-skill-chat/
-├── server.py                    # Flask 入口，注册 5 个 Blueprint
-├── skills_config.json           # 联系人注册表（JSON 数据，非代码）
-├── groups_config.json           # 群聊配置（JSON 数据）
-├── settings.json                # API 配置（gitignore）
-├── backend/
-│   ├── config.py                # JSON 读写 + fcntl 文件锁
-│   ├── skills.py                # Persona 三级查找加载
-│   ├── ai.py                    # Anthropic SDK 封装 + WeChat 格式注入
-│   ├── history.py               # 聊天记录 CRUD（fcntl 锁，上限 300 条）
-│   └── routes/
-│       ├── chat_routes.py       # /api/send, /api/history（单聊）
-│       ├── contacts_routes.py   # /api/config, import/delete/update
-│       ├── group_routes.py      # /api/groups, 群聊 SSE 发送, 路由 Agent
-│       ├── settings_routes.py   # /api/settings
-│       └── static_routes.py     # /avatars, /emoji, 头像上传
-├── templates/index.html         # 微信 PC 版 1:1 结构
-├── static/
-│   ├── css/style.css            # 完整样式
-│   ├── js/chat.js               # 单聊前端（Emoji渲染/右键菜单/拖拽上传）
-│   ├── js/group-chat.js         # 群聊前端（@提及/SSE流/群头像九宫格）
-│   ├── emoji/{face,gesture,...}  # 109 个微信黄脸 PNG
-│   └── avatars/                 # SVG / 上传头像
-├── skills/                      # 用户导入的 skill 文件
-└── chat_history/                # 聊天记录 JSON（每联系人/群聊一个文件）
+server.py            浏览器模式入口
+app_native.py        macOS 窗口版入口（pywebview）
+build_app.sh         生成 微信.app
+voice_worker.py      语音合成子进程
+backend/             Flask 后端：设置、联系人、单聊、群聊、搜索、语音、钥匙串
+templates/           主界面和搜索窗口
+static/              样式、前端脚本、表情、默认头像
+skills/example.md    示例人格
 ```
-
-**数据流**：用户发消息 → Flask → 加载 SKILL.md → 拼入 system prompt（最高优先级格式指令）→ Anthropic Messages API → 按换行拆成多条 → 渲染聊天气泡。
-
----
-
-## 细节
-
-### 消息发送
-
-用户消息先渲染绿气泡（乐观 UI），不等 API 返回。API 响应后追加白气泡。切换会话时 `chatId` 捕获机制保证消息不串到别人那里。中文输入法组合输入期间 Enter 不触发发送。
-
-### 并发安全
-
-`skills_config.json` 和 `chat_history/*.json` 使用 `fcntl.flock` 文件锁，多个请求同时操作不会损坏数据。每人的聊天记录上限 300 条（超出自动截断）。
-
-### 表情渲染
-
-109 个微信原生黄脸 PNG 按 `face/gesture/animal/blessing/other` 五类分目录。前端 `_emojiLookup` 映射中文名到目录，`[捂脸]` 在聊天气泡中渲染为 `<img src="/emoji/face/捂脸.png">`。表情选择面板可直接点击插入。
-
-### 时间格式化
-
-| 距离 | 聊天气泡 | 联系人卡片 |
-|------|---------|-----------|
-| 今天 | `14:30` | `14:30` |
-| 昨天 | `昨天 14:30` | `昨天14:30` |
-| 2-6天前 | `星期三 14:30` | `星期三` |
-| 今年内 | `5/20 14:30` | `5/20` |
-| 更早 | `2025/12/3 14:30` | `2025/12/3` |
-
-### AI 格式约束
-
-每次 API 调用前，system prompt 最前面注入最高优先级格式指令，强制模型：
-- **禁止 Markdown 语法** — `# * ** ~~ \` \`\`\`` 等全部禁用，微信没人用这些
-- 禁止 `（顿了顿）` 等括号动作描写
-- 禁止旁白、叙述性文字、场景描述
-- 表情用 `[捂脸]` 格式
-- 消息简短、口语化、无剧本感
-
-### 消息操作
-
-右键聊天气泡弹出菜单，可复制消息文本（表情自动转为 `[捂脸]` 格式）或删除消息。删除采用软删除——聊天记录 JSON 中标记 `deleted: true`，渲染时过滤，服务器重启后依然有效。
-
-### 头像管理
-
-设置页和联系人编辑框中，将图片文件直接拖入 URL 输入框即可上传到 `static/avatars/`，自动生成 UUID 文件名。新导入的 Skill 自动生成首字母 SVG 头像，颜色从 8 种预设色中 hash 分配。
-
-### 输入框
-
-工具栏含表情/文件/语音通话/视频通话四个图标。语音/视频通话点击弹出 `"你走火入魔了，还真想给 AI 打电话啊？"`。输入框可拖拽顶部边框调整高度（52-120px）。有文字时发送按钮变微信绿。
-
-### 文件附件
-
-前端将文件转为 base64 传给后端。后端根据扩展名选择解析器：
-
-| 类型 | 支持 | 需要 |
-|------|------|------|
-| `.txt` `.md` `.py` 等 | ✓ 内置 | 无 |
-| `.docx` | ✓ | `pip install python-docx` |
-| `.pdf`（有文本层） | ✓ | `pip install PyPDF2` |
-
-提取文本截断到 100,000 字符注入 API 调用。聊天记录存 JSON 时再截断预览，避免历史文件过大。
-
-### 群聊
-
-联系人列表顶部 **+** 按钮可发起群聊，选多个 Skill 组成群。群聊通过 SSE（Server-Sent Events）实时流式返回消息。
-
-**路由 Agent**：系统先调用一个轻量 LLM 判断消息应该由哪个成员回复——如果消息中包含某成员的真名或显示名，该成员强制回复。接着最多进行 2-3 轮迭代，每轮选一个尚未发言的成员回复，有 90% 概率选还没说过话的人，避免同一人霸屏。
-
-**上下文隔离**：历史记录放进 system prompt 作为参考文本（而非 messages 数组），避免模型机械复制前人格式。每次调用前注入群成员名单 + 真名对应关系，强制模型用真名称呼他人。
-
-**@提及**：输入框打 `@` 自动弹出成员列表，支持 @所有人。检测到提及后强制对应成员回复。
-
-**群聊历史**存储在 `chat_history/grp_*.json`，支持右键删除消息（软删除，标记 `deleted: true`）。

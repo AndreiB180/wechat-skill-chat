@@ -51,7 +51,7 @@ def get_session(chat_id):
         return _sessions.get(chat_id)
 
 
-def create_session(chat_id, system_prompt, cli_path="ccb", permission_mode="auto",
+def create_session(chat_id, system_prompt, cli_path="claude", permission_mode="auto",
                    working_dir=None):
     with _lock:
         _close_locked(chat_id)

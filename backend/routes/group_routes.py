@@ -3,18 +3,20 @@ import json, time, random, re
 from pathlib import Path
 from datetime import datetime
 from flask import Blueprint, request, jsonify, Response, stream_with_context
-from ..config import load_config, locked_write, locked_read, load_settings
+from ..config import load_config, locked_write, locked_read, load_settings, read_or_example
 from ..skills import load_skill_persona
 from ..ai import split_message, WECHAT_FORMAT_INSTRUCTION, _get_client, _get_model, _get_mode
 from .. import history as hist
+from ..history import new_id as new_msg_id, index_of
 
 group_bp = Blueprint("group", __name__)
 BASE_DIR = Path(__file__).parent.parent.parent
-GROUPS_FILE = BASE_DIR / "groups_config.json"
+GROUPS_FILE = BASE_DIR / "groups_config.json"   # 你的群聊，不进 git；第一次运行从 .example 拿示例
+MAX_LINES_PER_TURN = 4  # 单人单轮最多刷几条，防止一个人霸屏
 
 
 def load_groups():
-    return locked_read(GROUPS_FILE) or {"groups": []}
+    return read_or_example(GROUPS_FILE) or {"groups": []}
 
 
 def save_groups(data):
@@ -49,7 +51,7 @@ def api_create_group():
     save_groups(gcfg)
     # Persist the system invitation message so it survives page reload
     ts = datetime.now().strftime("%H:%M")
-    hist.save(gid, [{"sender": "system", "content": f"{get_nickname()}邀请{'、'.join(names)}加入了群聊", "time": ts, "timestamp": time.time()}])
+    hist.save(gid, [{"id": new_msg_id(), "sender": "system", "content": f"{get_nickname()}邀请{'、'.join(names)}加入了群聊", "time": ts, "timestamp": time.time()}])
     return jsonify({"ok": True, "group": gcfg["groups"][-1]})
 
 
@@ -88,12 +90,11 @@ def api_group_history(gid):
 @group_bp.route("/api/groups/<gid>/delete_message", methods=["POST"])
 def api_group_delete_message(gid):
     data = request.json or {}
-    idx = data.get("index")
-    if idx is None:
-        return jsonify({"error": "缺少索引"}), 400
     history = hist.load(gid)
-    if 0 <= idx < len(history):
-        history[idx]["deleted"] = True
+    idx = index_of(history, data.get("msg_id"))
+    if idx < 0:
+        return jsonify({"error": "找不到这条消息"}), 404
+    history[idx]["deleted"] = True
     hist.save(gid, history)
     return jsonify({"ok": True})
 
@@ -238,7 +239,7 @@ def api_group_send(gid):
     history = hist.load(gid)
     ts = datetime.now().strftime("%H:%M")
     now_ts = time.time()
-    history.append({"sender": "user", "sender_name": nickname, "content": message, "time": ts, "timestamp": now_ts})
+    history.append({"id": new_msg_id(), "sender": "user", "sender_name": nickname, "content": message, "time": ts, "timestamp": now_ts})
     hist.save(gid, history)
 
     members_info = [{"id": s["id"], "name": s["name"], "real_name": s.get("real_name", s["name"]), "desc": s.get("default_note", "") or s["name"]} for s in members]
@@ -277,13 +278,21 @@ def api_group_send(gid):
             # Router unavailable (no API key / Claude Code mode): pick a random member
             responders = [random.choice(members_info)] if members_info else []
 
+    # 失败的发言（API 报错 / 没配 Key）既不计入 iteration 也不进 responded_ids，
+    # 于是「挑下一个发言人」会反复挑中同一批人 —— 没有这个上限就是死循环，
+    # SSE 流永远不结束。attempts 保证无论怎么失败都能退出。
+    max_attempts = len(members_info) * 2 + 3
+    attempts = 0
+    produced = 0
+
     def generate():
-        nonlocal iteration, responders, responded_ids
-        while responders and iteration < max_iter:
+        nonlocal iteration, responders, responded_ids, attempts, produced
+        while responders and iteration < max_iter and attempts < max_attempts:
             current_round_responses = []
             for contact_info in responders:
-                if iteration >= max_iter:
+                if iteration >= max_iter or attempts >= max_attempts:
                     break
+                attempts += 1
                 if contact_info["id"] in responded_ids:
                     continue
                 contact = next((s for s in members if s["id"] == contact_info["id"]), None)
@@ -308,15 +317,17 @@ def api_group_send(gid):
                     continue
                 response = _strip_all_prefixes(response, all_names)
 
-                for msg in split_message(response):
-                    if iteration >= max_iter:
-                        break
+                # 一个人一次最多刷 4 条，免得单人把整屏刷满。
+                # （原来这里写的是 iteration >= max_iter，但 iteration 在本循环内不变，
+                #   等于永远不触发，是段死代码。）
+                for msg in split_message(response)[:MAX_LINES_PER_TURN]:
                     ts2 = datetime.now().strftime("%H:%M")
                     tm = time.time()
-                    history.append({"sender": "bot", "sender_name": contact["name"], "content": msg, "time": ts2, "timestamp": tm})
+                    history.append({"id": new_msg_id(), "sender": "bot", "sender_name": contact["name"], "content": msg, "time": ts2, "timestamp": tm})
                     all_responses.append({"sender": contact["id"], "sender_name": contact["name"], "content": msg, "time": ts2})
                     current_round_responses.append({"sender": contact["id"], "sender_name": contact["name"], "content": msg, "time": ts2})
-                    yield f"data: {json.dumps({'sender': contact['id'], 'sender_name': contact['name'], 'content': msg, 'time': ts2}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'sender': contact['id'], 'sender_name': contact['name'], 'content': msg, 'time': ts2, 'id': history[-1]['id']}, ensure_ascii=False)}\n\n"
+                    produced += 1
                 responded_ids.add(contact_info["id"])
                 iteration += 1
 
@@ -343,6 +354,15 @@ def api_group_send(gid):
                         responders = []
             else:
                 responders = []
+
+        if produced == 0:
+            # 一条都没生成出来，多半是没配 API Key 或 API 一直报错。
+            # 明确告诉用户，而不是安静地什么都不发生。
+            ts_err = datetime.now().strftime("%H:%M")
+            note = "群里没人回复 —— 检查一下 API Key、Model 和网络"
+            history.append({"id": new_msg_id(), "sender": "system", "content": note,
+                            "time": ts_err, "timestamp": time.time()})
+            yield f"data: {json.dumps({'system': True, 'content': note, 'time': ts_err}, ensure_ascii=False)}\n\n"
 
         hist.save(gid, history)
         yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"

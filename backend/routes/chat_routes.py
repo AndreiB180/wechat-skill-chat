@@ -8,8 +8,10 @@ from ..skills import load_skill_persona
 from ..ai import call_skill, split_message, CLAUDE_CLI_FORMAT_INSTRUCTION
 from ..ai import _get_mode as ai_get_mode
 from ..ai import _get_claude_cli, _get_permission_mode, _get_cc_workdir
-from ..history import load as load_history, save as save_history, clear as clear_history
+from ..history import (load as load_history, save as save_history,
+                       clear as clear_history, new_id as new_msg_id, index_of)
 from ..claude_session import get_session, create_session, close_session
+from ..voice import should_speak
 
 chat_bp = Blueprint("chat", __name__)
 MAX_FILE_CHARS = 100000
@@ -96,8 +98,10 @@ def _cc_stream(session, message, history, skill_id):
                 if c.get("type") == "text":
                     for msg_line in split_message(c["text"]):
                         ts = datetime.now().strftime("%H:%M")
-                        history.append({"sender": "bot", "content": msg_line, "time": ts, "timestamp": time.time()})
-                        yield _sse_event({"type": "text", "content": msg_line, "time": ts})
+                        mid = new_msg_id()
+                        history.append({"id": mid, "sender": "bot", "content": msg_line,
+                                        "time": ts, "timestamp": time.time()})
+                        yield _sse_event({"type": "text", "content": msg_line, "time": ts, "id": mid})
             if any(c.get("type") == "text" for c in event.get("message", {}).get("content", [])):
                 save_history(skill_id, history)
 
@@ -106,7 +110,7 @@ def _cc_stream(session, message, history, skill_id):
             break
 
         elif event.get("type") == "error":
-            history.append({"sender": "bot", "content": f"[错误] {event['content']}",
+            history.append({"id": new_msg_id(), "sender": "bot", "content": f"[错误] {event['content']}",
                             "time": datetime.now().strftime("%H:%M"), "timestamp": time.time()})
             save_history(skill_id, history)
             yield _sse_event({"type": "error", "content": event["content"]})
@@ -124,12 +128,11 @@ def api_history(skill_id):
 @chat_bp.route("/api/history/<skill_id>/delete", methods=["POST"])
 def api_delete_message(skill_id):
     data = request.json or {}
-    idx = data.get("index")
-    if idx is None:
-        return jsonify({"error": "缺少索引"}), 400
     history = load_history(skill_id)
-    if 0 <= idx < len(history):
-        history[idx]["deleted"] = True
+    idx = index_of(history, data.get("msg_id"))
+    if idx < 0:
+        return jsonify({"error": "找不到这条消息"}), 404
+    history[idx]["deleted"] = True
     save_history(skill_id, history)
     return jsonify({"ok": True})
 
@@ -230,7 +233,8 @@ def api_send(skill_id):
             api_message = message + "".join(fctx_parts)
             history_content = _compute_history_preview(message + "".join(fctx_parts))
 
-    history.append({"sender": "user", "content": history_content, "time": ts, "timestamp": now_ts})
+    history.append({"id": new_msg_id(), "sender": "user", "content": history_content,
+                    "time": ts, "timestamp": now_ts})
 
     if mode == "claude":
         cli_path = _get_claude_cli()
@@ -255,13 +259,27 @@ def api_send(skill_id):
             save_history(skill_id, history)
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
-    # API mode
-    response = call_skill(persona, api_message, history)
+    # API mode. history 末尾就是刚 append 的这条用户消息，call_skill 会自己带上
+    # api_message（含附件全文），所以这里要把它切掉，否则模型会收到两遍。
+    response = call_skill(persona, api_message, history[:-1])
     response_msgs = split_message(response)
     responses = []
     for msg in response_msgs:
         ts2 = datetime.now().strftime("%H:%M")
-        history.append({"sender": "bot", "content": msg, "time": ts2, "timestamp": time.time()})
-        responses.append({"content": msg, "time": ts2})
+        entry = {"id": new_msg_id(), "sender": "bot", "content": msg,
+                 "time": ts2, "timestamp": time.time()}
+        # 是否以语音形式发出，在后端掷骰子并落盘 —— 放前端掷的话刷新页面会重掷，
+        # 同一条消息一会儿是语音一会儿是文字。错误提示永远用文字。
+        if not msg.startswith("[错误]") and should_speak(skill_id):
+            entry["is_voice"] = True
+        history.append(entry)
+        responses.append({"content": msg, "time": ts2,
+                          "is_voice": entry.get("is_voice", False),
+                          "id": entry["id"]})
     save_history(skill_id, history)
-    return jsonify({"user": {"content": message, "time": ts}, "responses": responses})
+    # 把用户那条的 id 也回给前端：前端是乐观渲染先插入的，本地那条没有 id，
+    # 不回填的话「删除 / 合成语音」这类按 id 定位的操作会找不到它。
+    user_id = next((m["id"] for m in history if m.get("sender") == "user"
+                    and m.get("content") == history_content), None)
+    return jsonify({"user": {"id": user_id, "content": message, "time": ts},
+                    "responses": responses})

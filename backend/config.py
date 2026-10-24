@@ -4,7 +4,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
 SETTINGS_FILE = BASE_DIR / "settings.json"
-CONFIG_FILE = BASE_DIR / "skills_config.json"
+CONFIG_FILE = BASE_DIR / "skills_config.json"   # 你的联系人，不进 git；第一次运行从 .example 拿示例
 
 
 def locked_read(path):
@@ -40,9 +40,17 @@ def save_settings(data):
     locked_write(SETTINGS_FILE, data)
 
 
+def read_or_example(path):
+    """读 path；还没有这个文件时读同名的 .example.json（仓库里只放示例，真实数据留在本机）。"""
+    data = locked_read(path)
+    if data is None and not path.exists():
+        data = locked_read(path.with_name(path.stem + ".example.json"))
+    return data
+
+
 # ---- Skills Config ----
 def load_config():
-    return locked_read(CONFIG_FILE) or {"skills": []}
+    return read_or_example(CONFIG_FILE) or {"skills": []}
 
 
 def save_config(cfg):

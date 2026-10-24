@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>搜索聊天记录</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+/* 这是一个独立的原生窗口，有自己的系统标题栏，所以不需要浮层那套定位 */
+html,body{height:100%;overflow:hidden}
+body{background:var(--panel-bg);display:flex;flex-direction:column}
+.swp-top{flex-shrink:0;padding:46px 20px 0}  /* 让开顶部标题栏 */
+.swp-search{display:flex;align-items:center;gap:9px;padding:0 11px;height:36px;
+  border:1.6px solid var(--green);border-radius:8px;background:var(--modal-bg)}
+.swp-search input{flex:1;min-width:0;background:transparent;border:none;outline:none;
+  font-size:15px;color:var(--text);font-family:inherit;caret-color:var(--green)}
+.swp-tabs{display:flex;gap:26px;padding:14px 4px 12px}
+.swp-tab{font-size:14px;color:var(--text-2);cursor:pointer}
+.swp-tab:hover{color:var(--text)}
+.swp-body{flex:1;display:flex;min-height:0;border-top:1px solid var(--hairline)}
+.swp-left{width:340px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--hairline)}
+.swp-right{flex:1;overflow-y:auto;padding:16px 22px}
+</style>
+</head>
+<body>
+  <div class="swp-top">
+    <div class="swp-search">
+      <svg class="search-ico" viewBox="0 0 16 16" style="width:15px;height:15px;color:var(--text-2)">
+        <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M10.6 10.6L14.2 14.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input id="q" placeholder="搜索聊天记录">
+      <div class="search-clear show" onclick="document.getElementById('q').value='';doSearch('')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="8" cy="8" r="6.4"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+      </div>
+    </div>
+    <div class="swp-tabs">
+      <div class="swp-tab" onclick="hint('发送人')">发送人</div>
+      <div class="swp-tab" onclick="hint('日期')">日期</div>
+    </div>
+  </div>
+  <div class="swp-body">
+    <div class="swp-left" id="left"></div>
+    <div class="swp-right" id="right"></div>
+  </div>
+
+<script>
+const FALLBACK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23d0d0d0'/%3E%3C/svg%3E";
+let DATA = null, CUR = null, SETTINGS = {}, SKILLS = [];
+
+const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const hl = h => esc(h.pre) + `<span class="hl">${esc(h.hit)}</span>` + esc(h.post);
+
+const DAYS = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+function fmt(ts, withTime) {
+  const d = new Date(ts*1000), now = new Date();
+  const t0 = new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const t1 = new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const diff = Math.round((t0-t1)/86400000);
+  const hm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  let ds = '';
+  if (diff === 0) ds = '';
+  else if (diff === 1) ds = '昨天';
+  else if (diff < 7) ds = DAYS[d.getDay()];
+  else if (d.getFullYear() === now.getFullYear()) ds = `${d.getMonth()+1}月${d.getDate()}日`;
+  else ds = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+  if (!withTime) return ds || hm;
+  return ds ? `${ds} ${hm}` : hm;
+}
+
+function hint(name) {
+  const r = document.getElementById('right');
+  const old = r.innerHTML;
+  r.innerHTML = `<div class="sp-empty">「${name}」筛选还没做</div>`;
+  setTimeout(() => { r.innerHTML = old; }, 1200);
+}
+
+function avatarOf(c) {
+  if (c.type === 'group') {
+    const avs = [SETTINGS.my_avatar || '', ...(c.members||[]).map(m =>
+      (SKILLS.find(s=>s.id===m)||{}).avatar || '')].slice(0,4);
+    const t = 20;
+    return `<div class="sr-avatar" style="position:relative">` + avs.map((a,i)=>
+      `<img src="${a}" style="position:absolute;top:${Math.floor(i/2)*t}px;left:${(i%2)*t}px;width:${t}px;height:${t}px;object-fit:cover">`
+    ).join('') + `</div>`;
+  }
+  return `<div class="sr-avatar"><img src="${c.avatar}" onerror="this.src='${FALLBACK_AVATAR}'"></div>`;
+}
+
+async function doSearch(q) {
+  q = (q||'').trim();
+  if (!q) { document.getElementById('left').innerHTML=''; document.getElementById('right').innerHTML=''; return; }
+  DATA = await fetch('/api/search?q='+encodeURIComponent(q)).then(r=>r.json());
+  render(DATA.chats[0] && DATA.chats[0].id);
+}
+
+function render(chatId) {
+  const left = document.getElementById('left');
+  if (!DATA || !DATA.chats.length) {
+    left.innerHTML = '';
+    document.getElementById('right').innerHTML = '<div class="sp-empty">没有匹配的聊天记录</div>';
+    return;
+  }
+  CUR = chatId || DATA.chats[0].id;
+  left.innerHTML = DATA.chats.map(c => `
+    <div class="sw-chat ${c.id===CUR?'active':''}" onclick="pick('${c.id}')">
+      ${avatarOf(c)}
+      <div class="sr-main">
+        <div class="sr-top"><div class="sr-name">${esc(c.name)}</div>
+          <div class="sr-time">${fmt(c.latest_ts,false)}</div></div>
+        <div class="sr-snip">${hl(c.preview[0])}</div>
+        <div class="sr-count">共 <span class="hl">${c.count}</span> 条相关聊天记录</div>
+      </div></div>`).join('');
+  loadHits(CUR);
+}
+
+function pick(id) { CUR = id; render(id); }
+
+async function loadHits(chatId) {
+  const right = document.getElementById('right');
+  right.innerHTML = '<div class="sp-empty">加载中…</div>';
+  const q = DATA.query;
+  const d = await fetch(`/api/search/chat/${chatId}?q=${encodeURIComponent(q)}`).then(r=>r.json());
+  const mine = SETTINGS.my_avatar || '';
+  const fallback = (SKILLS.find(s=>s.id===chatId)||{}).avatar || '';
+  right.innerHTML = `<div class="sw-rhead">共 <span class="hl">${d.count}</span> 条与“${esc(q)}”的聊天记录
+      <span class="sw-enter" onclick="enterChat('${chatId}')">进入聊天 ›</span></div>`
+    + d.hits.map(h => `<div class="sw-hit">
+        <div class="sw-hit-av"><img src="${h.is_self ? mine : (h.avatar||fallback)}" onerror="this.src='${FALLBACK_AVATAR}'"></div>
+        <div class="sw-hit-main">
+          <div class="sw-hit-top"><div class="sw-hit-name">${esc(h.sender_name)}</div>
+            <div class="sw-hit-time">${fmt(h.timestamp,true)}</div></div>
+          <div class="sw-hit-body">${hl(h)}</div>
+        </div></div>`).join('');
+}
+
+function enterChat(chatId) {
+  // 让主窗口切到那个会话；原生模式下走 pywebview 桥，否则退化成什么都不做
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.focus_chat) {
+    window.pywebview.api.focus_chat(chatId);
+  }
+}
+
+(async function init() {
+  [SETTINGS, SKILLS] = await Promise.all([
+    fetch('/api/settings').then(r=>r.json()),
+    fetch('/api/config').then(r=>r.json()),
+  ]);
+  const q = new URLSearchParams(location.search).get('q') || '';
+  document.getElementById('q').value = q;
+  document.getElementById('q').addEventListener('input', e => doSearch(e.target.value));
+  if (q) doSearch(q);
+})();
+</script>
+</body>
+</html>

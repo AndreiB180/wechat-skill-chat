@@ -1,42 +1,40 @@
 """Routes for /api/settings"""
-import base64
 from flask import Blueprint, request, jsonify
 from ..config import load_settings, save_settings
 from ..claude_cli import check_claude_cli
 from ..claude_session import _sessions, _lock
+from ..keychain import store as store_key, MARKER as KEYCHAIN_MARKER, available as keychain_ok
 
 settings_bp = Blueprint("settings", __name__)
-
-
-def _obfuscate(s):
-    return base64.b64encode(s.encode()).decode()
+MASK = "••••已保存••••"
 
 
 @settings_bp.route("/api/settings", methods=["GET", "POST"])
 def api_settings():
     if request.method == "GET":
         s = load_settings()
+        # 永远不把真实密钥回传给前端
         if s.get("api_key"):
-            key = s["api_key"]
-            if key.startswith("obf:"):
-                s = {**s, "api_key": "••••已保存••••"}
-            elif len(key) > 8:
-                s = {**s, "api_key": key[:4] + "••••" + key[-4:]}
+            s = {**s, "api_key": MASK}
         s.setdefault("mode", "api")
-        s.setdefault("claude_cli", "ccb")
+        s.setdefault("claude_cli", "claude")
+        s["key_in_keychain"] = str(load_settings().get("api_key", "")).startswith(KEYCHAIN_MARKER)
+        s["keychain_available"] = keychain_ok()
         return jsonify(s)
 
     data = request.json or {}
     s = load_settings()
     old_dirs = s.get("add_dirs")
     old_mode = s.get("mode")
-    for k in ["base_url", "model", "my_avatar", "nickname", "mode", "claude_cli", "permission_mode", "add_dirs"]:
+    for k in ["base_url", "model", "my_avatar", "nickname", "mode", "claude_cli",
+              "permission_mode", "add_dirs", "voice_url"]:
         if k in data:
             s[k] = data[k]
-    if data.get("api_key") and data["api_key"] != "••••已保存••••":
+    if data.get("api_key") and data["api_key"] != MASK:
         raw = data["api_key"].strip()
-        if not any(c in raw for c in ['•', '…']):
-            s["api_key"] = "obf:" + _obfuscate(raw)
+        if raw and not any(c in raw for c in ['•', '…']):
+            # 优先进钥匙串；不可用时 store() 自己回退到混淆存文件
+            s["api_key"] = store_key(raw)
     save_settings(s)
 
     # Mode switch CC→API: gracefully close all CC sessions (logout), keep persisted files for resume
@@ -68,6 +66,6 @@ def api_settings():
 @settings_bp.route("/api/settings/check_claude", methods=["POST"])
 def api_check_claude():
     data = request.json or {}
-    cli_path = data.get("claude_cli", "ccb").strip()
+    cli_path = data.get("claude_cli", "claude").strip()
     ok, info = check_claude_cli(cli_path)
     return jsonify({"ok": ok, "version": info})

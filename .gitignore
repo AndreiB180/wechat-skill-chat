@@ -1,6 +1,43 @@
-chat_history/
+# --- 隐私数据：绝对不要提交 ---
+# 注意：.gitignore 不认行尾注释，注释必须单独占一行
+# 含 API Key
 settings.json
-__pycache__/
-*.pyc
-.DS_Store
+# 你导入的联系人和建的群（仓库里只有 *.example.json）
+skills_config.json
+groups_config.json
+# 私密聊天记录 + CC session id
+chat_history/
 cc_logs/
+# 语音模型路径配置（可能含本机绝对路径）
+voice_config.json
+# 导入的人格文件（含真人信息），只放行示例
+skills/*
+!skills/example.md
+# 上传的头像（含真人照片），只放行默认头像
+static/avatars/*
+!static/avatars/default.svg
+# TTS 生成的音频缓存
+static/voice_cache/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- py2app / 构建产物 ---
+build/
+dist/
+*.app
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- 编辑器 ---
+.vscode/
+.idea/
+*.swp

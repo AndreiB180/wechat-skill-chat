@@ -12,18 +12,10 @@ except ImportError:
 BASE_DIR = Path(__file__).parent.parent
 
 
-def _deobfuscate(s):
-    try:
-        return base64.b64decode(s).decode()
-    except Exception:
-        return s
-
-
 def _get_api_key():
-    s = load_settings()
-    key = s.get("api_key", "")
-    if key.startswith("obf:"):
-        return _deobfuscate(key[4:])
+    """密钥优先从 macOS 钥匙串取；老格式（obf: / 明文）仍然认，便于平滑迁移。"""
+    from .keychain import resolve
+    key = resolve(load_settings().get("api_key", ""))
     return key or os.environ.get("ANTHROPIC_API_KEY", "")
 
 
@@ -81,7 +73,7 @@ def _get_mode():
 
 
 def _get_claude_cli():
-    return load_settings().get("claude_cli", "ccb")
+    return load_settings().get("claude_cli", "claude")
 
 
 def _get_permission_mode():
@@ -97,8 +89,49 @@ def _get_cc_workdir():
     return os.path.expanduser("~")
 
 
+def build_messages(prior_history, message, limit=20):
+    """Build an Anthropic-compatible messages array.
+
+    Anthropic 要求 user/assistant 严格交替、且首条必须是 user。但一次回复会被
+    split_message 拆成多条 bot 记录存盘，直接映射就会产生连续的 assistant，
+    历史窗口也可能以 assistant 开头 —— 两者都会让 /v1/messages 直接 400。
+    （DeepSeek 的兼容层比较宽容所以之前没暴露。）
+
+    prior_history 必须是「不含当前这条用户消息」的历史。
+    """
+    turns = []
+    for h in prior_history[-limit:]:
+        if h.get("deleted"):
+            continue  # 用户删掉的消息不该继续喂给模型
+        sender = h.get("sender")
+        if sender == "system":
+            continue  # 工具卡片 / 系统提示不是对话内容
+        content = (h.get("content") or "").strip()
+        if not content:
+            continue
+        role = "user" if sender == "user" else "assistant"
+        if role == "assistant" and content.startswith("[错误]"):
+            continue
+        if turns and turns[-1]["role"] == role:
+            turns[-1]["content"] += "\n" + content
+        else:
+            turns.append({"role": role, "content": content})
+
+    while turns and turns[0]["role"] == "assistant":
+        turns.pop(0)
+
+    if turns and turns[-1]["role"] == "user":
+        turns[-1]["content"] += "\n" + message
+    else:
+        turns.append({"role": "user", "content": message})
+    return turns
+
+
 def call_skill(system_prompt, message, history):
-    """API mode only — CC mode is handled via persistent sessions in chat_routes."""
+    """API mode only — CC mode is handled via persistent sessions in chat_routes.
+
+    history 是当前这条消息之前的历史，不包含 message 本身。
+    """
     client = _get_client()
     if not client:
         return "[错误] 未设置 API Key。请在设置中填写。"
@@ -107,15 +140,7 @@ def call_skill(system_prompt, message, history):
         return "[错误] 未设置 Model。请在设置中填写。"
 
     system_prompt = WECHAT_FORMAT_INSTRUCTION + system_prompt
-
-    messages = []
-    for h in history[-20:]:
-        role = "assistant" if h["sender"] != "user" else "user"
-        content = h.get("content", "")
-        if role == "assistant" and content.startswith("[错误]"):
-            continue
-        messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": message})
+    messages = build_messages(history, message)
 
     try:
         response = client.messages.create(

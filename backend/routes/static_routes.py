@@ -32,3 +32,22 @@ def upload_avatar():
 @static_bp.route("/emoji/<path:filepath>")
 def emoji_files(filepath):
     return send_from_directory(BASE_DIR / "static" / "emoji", filepath)
+
+
+@static_bp.route("/api/emoji_manifest")
+def emoji_manifest():
+    """扫描磁盘上真实存在的表情 PNG，返回 {表情名: 所在目录}。
+
+    前端原来把这份清单硬编码在 chat.js 里，和磁盘素材已经漂移到
+    113 个里有 37 个没有对应图片 —— 面板里空一片、聊天气泡里显示成 [酷] 这种裸文本。
+    改成以磁盘为准动态生成后，加删素材都不会再漂移。
+    """
+    root = BASE_DIR / "static" / "emoji"
+    manifest = {}
+    if root.is_dir():
+        for sub in sorted(root.iterdir()):
+            if not sub.is_dir():
+                continue
+            for png in sorted(sub.glob("*.png")):
+                manifest[png.stem] = sub.name
+    return jsonify(manifest)
